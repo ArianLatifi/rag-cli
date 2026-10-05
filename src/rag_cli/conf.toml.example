@@ -1,0 +1,16 @@
+[llm]
+API_KEY = "your_api_key_here"
+model = "moonshotai/Kimi-K3" # you can change this to any model you want to use
+base_url="https://api.together.ai/v1" # you can change this to any base url you want to use
+max_new_tokens = 512
+temperature = 0.2
+
+[embedding]
+path = "...\\all-MiniLM-L6-v2" #download the embedding model and set the absolute path here
+
+[chunking]
+chunk_size = 150      # words
+overlap = 30
+
+[retrieval]
+top_k = 4

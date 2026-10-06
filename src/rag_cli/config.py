@@ -28,4 +28,3 @@ def get_config() -> tomlkit.TOMLDocument:
 def save_config(config: tomlkit.TOMLDocument) -> None:
     config_path = get_config_path()
     config_path.write_text(tomlkit.dumps(config), encoding="utf-8")
-    print(f"Configuration saved to {config_path}")

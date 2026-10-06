@@ -1,13 +1,13 @@
 """Responsible for embeddings"""
 
-import tomllib
-
 from sentence_transformers import SentenceTransformer
 
-with open("conf.toml", "rb") as f:
-    # Load the configuration from the TOML file
-    conf = tomllib.load(f)
+from rag_cli.config import get_config
 
+conf = get_config()
 model_path = conf["embedding"]["path"]
 
-embedding_model = SentenceTransformer(model_path)
+
+def get_embedding_model() -> SentenceTransformer:
+    """Returns the embedding model."""
+    return SentenceTransformer(model_path)

@@ -1,34 +1,29 @@
 import os
-import tomllib
 from typing import Annotated
 
-import chromadb
 import typer
 
-from rag_cli.document_prep import chunking
-from rag_cli.embedding import embedding_model
+from rag_cli.chunking import chunking
+from rag_cli.config import get_config, save_config
+from rag_cli.embedding import get_embedding_model
 from rag_cli.language_model import LLM
+from rag_cli.vectordb import collection
 
 app = typer.Typer()
 
-chroma_client = chromadb.Client()
-collection = chroma_client.create_collection(name="rag")  # in memory collection
 
-with open("conf.toml", "rb") as f:
-    # Load the configuration from the TOML file
-    conf = tomllib.load(f)
+conf = get_config()
 
 chunk_size = conf["chunking"]["chunk_size"]
 overlap = conf["chunking"]["overlap"]
 top_k = conf["retrieval"]["top_k"]
 
 
-@app.callback(invoke_without_command=True)
-def start(path: Annotated[str, typer.Argument()] = "."):
+@app.command(name="chat")
+def chat(path: Annotated[str, typer.Argument()] = "."):
+    embedding_model = get_embedding_model()
     if path == ".":
         path = os.getcwd()
-
-    print(f"{path=}")
 
     # Filter to only regular files
     files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
@@ -50,17 +45,15 @@ def start(path: Annotated[str, typer.Argument()] = "."):
             chunks = chunking(content, chunk_size, overlap)
 
             for chunk in chunks:
-                # Ensure chunk is string format for Chroma documents
-                chunk_text = " ".join(chunk) if isinstance(chunk, list) else str(chunk)
 
                 # Encode the text
-                emb_chunk = embedding_model.encode(chunk_text)
+                emb_chunk = embedding_model.encode(chunk)
                 emb_list = emb_chunk.tolist()
 
                 # Add to ChromaDB with globally unique IDs
                 collection.add(
                     ids=[f"doc_{global_id_counter}"],
-                    documents=[chunk_text],
+                    documents=[chunk],
                     embeddings=[emb_list],
                     metadatas=[{"filename": f}],
                 )
@@ -104,6 +97,71 @@ def start(path: Annotated[str, typer.Argument()] = "."):
 
         messages.append({"role": "assistant", "content": full_response})
         print("\n---")
+
+
+@app.command("config")
+def config(
+    conf_list: bool = typer.Option(
+        False,
+        "--list",
+        help="List the current configuration.",
+    ),
+    llm_model: str | None = typer.Option(
+        None,
+        "--llm-model",
+        help="Set the LLM model.",
+    ),
+    embedding_model: str | None = typer.Option(
+        None,
+        "--embedding-model",
+        help="Set the embedding model.",
+    ),
+    top_k: int | None = typer.Option(
+        None,
+        "--top-k",
+        help="Set the number of retrieved chunks.",
+    ),
+    chunk_size: int | None = typer.Option(
+        None,
+        "--chunk-size",
+        help="Set the chunk size.",
+    ),
+    chunk_overlap: int | None = typer.Option(
+        None,
+        "--chunk-overlap",
+        help="Set the chunk overlap.",
+    ),
+):
+
+    config = get_config()
+
+    if conf_list:
+        output = "\n".join(f"{key}: {value}" for key, value in config.items())
+        typer.echo(output)
+
+    if llm_model is not None:
+        config["llm"]["model"] = llm_model
+
+    if embedding_model is not None:
+        config["embedding"]["model"] = embedding_model
+
+    if top_k is not None:
+        config["retrieval"]["top_k"] = top_k
+
+    if chunk_size is not None:
+        config["retrieval"]["chunk_size"] = chunk_size
+
+    if chunk_overlap is not None:
+        config["retrieval"]["overlap"] = chunk_overlap
+
+    try:
+        save_config(config)
+
+    except FileNotFoundError as e:
+        typer.echo(f"Failed to save configuration: {e}")
+
+    if not conf_list:
+        typer.echo("Configuration updated successfully.")
 
 
 if __name__ == "__main__":

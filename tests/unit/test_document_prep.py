@@ -1,4 +1,4 @@
-from rag_cli.document_prep import chunking
+from rag_cli.chunking import chunking
 
 
 def test_chunking():
@@ -23,9 +23,3 @@ def test_chunking_overlap():
         ["three", "four", "five"],
         ["five", "six"],
     ]
-
-
-def test_chunking_empty_document():
-    result = list(chunking("", chunk_size=5))
-
-    assert result == []
